@@ -28,6 +28,8 @@ import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.queries.SourceForBinaryQuery;
+import org.netbeans.api.project.Project;
+import org.netbeans.spi.project.ui.LogicalViewProvider;
 import org.netbeans.spi.project.ui.PathFinder;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -40,7 +42,6 @@ import org.openide.nodes.Node;
  * @author Tomas Zezula
  */
 class PathFinders {
-
     private PathFinders() {
         throw new IllegalStateException();
     }
@@ -52,6 +53,16 @@ class PathFinders {
     }
 
     @NonNull
+    static PathFinder createModulesFinder() {
+        return new SubModulesPathFinder();
+    }
+
+    @NonNull
+    static PathFinder createSubProjectFinder() {
+        return new SubProjectPathFinder();
+    }
+
+	@NonNull
     static PathFinder createDelegatingPathFinder(@NullAllowed PathFinder delegate) {
         final RebasePathFinder res = new RebasePathFinder();
         res.setDelegate(delegate);
@@ -69,7 +80,6 @@ class PathFinders {
     }
 
     private static final class SubNodesPathFinder implements PathFinder {
-
         @Override
         public Node findPath(Node root, Object target) {
             Node result = null;
@@ -86,9 +96,45 @@ class PathFinders {
             }
             return result;
         }
-
     }
 
+    private static final class SubProjectPathFinder implements PathFinder {
+        @Override
+        public Node findPath(Node root, Object target) {
+			Project p = root.getLookup().lookup(Project.class);
+			if (p == null) {
+				return null;
+			}
+			final LogicalViewProvider lvp = p.getLookup().lookup(LogicalViewProvider.class);
+			if (lvp == null) {
+				return null;
+			}
+			return lvp.findPath(root, target);
+		}
+    }
+
+    private static final class SubModulesPathFinder implements PathFinder {
+        @Override
+        public Node findPath(Node root, Object target) {
+            Node result = null;
+            for (Node  node : root.getChildren().getNodes(true)) {
+                Project p = node.getLookup().lookup(Project.class);
+                if (p == null) {
+                    continue;
+                }
+                final LogicalViewProvider lvp = p.getLookup().lookup(LogicalViewProvider.class);
+                if (lvp == null) {
+                    continue;
+                }
+                result = lvp.findPath(node, target);
+                if (result != null) {
+                    break;
+                }
+            }
+            return result;
+        }
+
+    }
 
     private static final class RebasePathFinder implements PathFinder {
 
@@ -192,7 +238,6 @@ class PathFinders {
             }
             currentValues.add(value);
         }
-
     }
 
 }

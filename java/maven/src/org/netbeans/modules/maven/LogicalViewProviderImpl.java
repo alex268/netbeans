@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.StringTokenizer;
+import org.apache.maven.project.MavenProject;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.project.JavaProjectConstants;
 import org.netbeans.api.project.FileOwnerQuery;
@@ -51,7 +52,6 @@ import org.openide.util.lookup.Lookups;
  */
 @ProjectServiceProvider(service=LogicalViewProvider.class, projectType="org-netbeans-modules-maven")
 public class LogicalViewProviderImpl implements LogicalViewProvider {
-
     private final Project proj;
 
     public LogicalViewProviderImpl(Project proj) {
@@ -88,13 +88,12 @@ public class LogicalViewProviderImpl implements LogicalViewProvider {
         
         if ( target instanceof FileObject ) {
             FileObject fo = (FileObject)target;
-            
             if (isOtherProjectSource(fo, prj) ) {
                 return null; // Don't waste time if project does not own the fo
             }
             Node[] nodes = node.getChildren().getNodes(true);
             for (int i = 0; i < nodes.length; i++) {
-                Node result = PackageView.findPath(nodes[i], target);
+				Node result = PackageView.findPath(nodes[i], target);
                 if (result != null) {
                     return result;
                 }
@@ -125,6 +124,27 @@ public class LogicalViewProviderImpl implements LogicalViewProvider {
         
         return null;
     }
+	
+	private static boolean isParentOf(Project me, Project other) {
+		NbMavenProjectImpl mePrj = me.getLookup().lookup(NbMavenProjectImpl.class);
+		NbMavenProjectImpl otherPrj = other.getLookup().lookup(NbMavenProjectImpl.class);
+
+		if (mePrj == null || otherPrj == null) {
+			return false;
+		}
+		
+		MavenProject meMvn = mePrj.getOriginalMavenProject();
+		MavenProject otherMvn = otherPrj.getOriginalMavenProject();
+		
+		while (otherMvn != null) {
+			if (meMvn.equals(otherMvn)) {
+				return true;
+			}
+			otherMvn = otherMvn.getParent();
+		}
+
+		return false;
+	}
 
     private static boolean isOtherProjectSource(
             @NonNull final FileObject fo,
@@ -133,14 +153,22 @@ public class LogicalViewProviderImpl implements LogicalViewProvider {
         if (owner == null) {
             return false;
         }
-        if (me.equals(owner)) {
+
+		if (me.equals(owner) || isParentOf(me, owner)) {
             return false;
         }
-        for (SourceGroup sg : ProjectUtils.getSources(owner).getSourceGroups(JavaProjectConstants.SOURCES_TYPE_JAVA)) {
+
+		for (SourceGroup sg : ProjectUtils.getSources(owner).getSourceGroups(JavaProjectConstants.SOURCES_TYPE_JAVA)) {
             if (FileUtil.isParentOf(sg.getRootFolder(), fo)) {
                 return true;
             }
         }
+        for (SourceGroup sg : ProjectUtils.getSources(owner).getSourceGroups(JavaProjectConstants.SOURCES_TYPE_RESOURCES)) {
+            if (FileUtil.isParentOf(sg.getRootFolder(), fo)) {
+                return true;
+            }
+        }
+		
         return false;
     }
 
