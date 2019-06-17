@@ -463,8 +463,9 @@ public class ProjectsRootNode extends AbstractNode {
         // Own methods ---------------------------------------------------------
         
         public Collection<Pair> getKeys() {
-            List<Project> projects = Arrays.asList( OpenProjectList.getDefault().getOpenProjects() );
-            projects.sort(OpenProjectList.projectByDisplayName());
+//            List<Project> projects = Arrays.asList( OpenProjectList.getDefault().getOpenProjects() );
+            List<Project> projects = OpenProjectList.getDefault().getRootProjects();
+            Collections.sort(projects, OpenProjectList.projectByDisplayName());
             
             final List<Pair> dirs = new ArrayList<>(projects.size());
             final java.util.Map<Project,Pair> snapshot = new HashMap<>();

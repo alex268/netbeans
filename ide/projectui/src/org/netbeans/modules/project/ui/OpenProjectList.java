@@ -1035,6 +1035,34 @@ public final class OpenProjectList {
             LOAD.exit();
         }
     }
+    
+    @NonNull
+    public List<Project> getRootProjects() {
+        return MUTEX.readAccess(() -> {
+            List<Project> pl = new ArrayList<>();
+            for (Project p : openProjects) {
+                boolean processed = false;
+                for (int i = 0; i < pl.size(); i += 1) {
+                    String p1 = pl.get(i).getProjectDirectory().getPath();
+                    String p2 = p.getProjectDirectory().getPath();
+                    if (p2.startsWith(p1)) {
+                        processed = true;
+                        break;
+                    }
+                    if (p1.startsWith(p2)) {
+                        pl.set(i, p);
+                        processed = true;
+                        break;
+                    }
+                }
+                if (!processed) {
+                    pl.add(p);
+                }
+            }
+            
+            return pl;
+        });
+    }
 
     @NonNull
     public Project[] getOpenProjects() {
