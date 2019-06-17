@@ -73,7 +73,7 @@ import org.openide.util.lookup.Lookups;
  * @author Milos Kleint 
  */
 public class ModulesNode extends AbstractNode {
-    private static final @StaticResource String MODULES_BADGE = "org/netbeans/modules/maven/modules-badge.png";
+	private static final @StaticResource String MODULES_BADGE = "org/netbeans/modules/maven/modules-badge.png";
     private final NbMavenProjectImpl proj;
 
     @Messages("LBL_Modules=Modules")
@@ -111,6 +111,22 @@ public class ModulesNode extends AbstractNode {
         boolean isAggregator;
         LogicalViewProvider provider;
         NbMavenProjectImpl proj;
+		
+		public Node createLogicalView() {
+			return provider.createLogicalView();
+		}
+		
+		public NbMavenProjectImpl project() {
+			return proj;
+		}
+		
+		public Children createChildren() {
+			return isAggregator ? FilterNode.Children.create(new ModulesChildFactory(proj), true) : FilterNode.Children.LEAF;
+		}
+				
+		public Lookup createLookup() {
+			return isAggregator ? Lookups.fixed(PathFinders.createModulesFinder(), proj) : Lookups.fixed(PathFinders.createSubProjectFinder(), proj);
+		}
     }
     
     private static class ModulesChildFactory extends ChildFactory<Wrapper>{
@@ -156,7 +172,7 @@ public class ModulesNode extends AbstractNode {
                         if (prj != null && prj.getLookup().lookup(NbMavenProjectImpl.class) != null) {
                             Wrapper wr = new Wrapper();
                             wr.proj = (NbMavenProjectImpl) prj;
-                            MavenProject mp = wr.proj.getOriginalMavenProject();
+                            MavenProject mp = wr.project().getOriginalMavenProject();
                             wr.isAggregator = NbMavenProject.TYPE_POM.equals(mp.getPackaging()) && !mp.getModules().isEmpty();
                             wr.provider = prj.getLookup().lookup(LogicalViewProvider.class);
                             assert wr.provider != null;
@@ -177,9 +193,9 @@ public class ModulesNode extends AbstractNode {
 		@Override
 		protected Node createNodeForKey(Wrapper wr) {
 			if (OpenProjects.getDefault().isProjectOpen(wr.proj)) {
-				return new OpenProjectFilterNode(this, wr.provider.createLogicalView());
+				return new OpenProjectFilterNode(this, wr);
 			} else {
-				return new ClosedProjectFilterNode(this, project, wr.proj, wr.provider.createLogicalView(), wr.isAggregator);
+				return new ClosedProjectFilterNode(this, project, wr);
 			}
 		}
     }
@@ -187,8 +203,8 @@ public class ModulesNode extends AbstractNode {
     private static class OpenProjectFilterNode extends FilterNode {
 		private final ModulesChildFactory factory;
 
-        OpenProjectFilterNode(ModulesChildFactory factory, Node original) {
-            super(original);
+        OpenProjectFilterNode(ModulesChildFactory factory, Wrapper wp) {
+            super(wp.createLogicalView(), null, wp.createLookup());
 			this.factory = factory;
         }
 
@@ -209,11 +225,11 @@ public class ModulesNode extends AbstractNode {
         private final NbMavenProjectImpl project;
         private final NbMavenProjectImpl parent;
 
-        ClosedProjectFilterNode(ModulesChildFactory factory, NbMavenProjectImpl parent, NbMavenProjectImpl proj, Node original, boolean isAggregator) {
-            super(original, isAggregator ? Children.create(new ModulesChildFactory(proj), true) : Children.LEAF);
+        ClosedProjectFilterNode(ModulesChildFactory factory, NbMavenProjectImpl parent, Wrapper wp) {
+            super(wp.createLogicalView(), wp.createChildren(), wp.createLookup());
 //            disableDelegation(DELEGATE_GET_ACTIONS);
 			openModule = new OpenProjectAction(factory);
-            project = proj;
+            project = wp.project();
             this.parent = parent;
         }
 
