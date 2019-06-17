@@ -45,6 +45,7 @@ import org.netbeans.modules.maven.model.ModelOperation;
 import org.netbeans.modules.maven.model.pom.POMModel;
 import static org.netbeans.modules.maven.nodes.Bundle.*;
 import org.netbeans.modules.maven.spi.nodes.NodeUtils;
+import org.netbeans.modules.project.ui.actions.CloseProject;
 import org.netbeans.modules.project.ui.api.ProjectActionUtils;
 import org.netbeans.spi.project.ui.LogicalViewProvider;
 import org.netbeans.spi.project.ui.support.CommonProjectActions;
@@ -65,19 +66,19 @@ import org.openide.util.NbBundle.Messages;
 import org.openide.util.RequestProcessor;
 import org.openide.util.Utilities;
 import org.openide.util.WeakListeners;
+import org.openide.util.lookup.Lookups;
 
 /**
  * display the modules for pom packaged project
  * @author Milos Kleint 
  */
 public class ModulesNode extends AbstractNode {
-
     private static final @StaticResource String MODULES_BADGE = "org/netbeans/modules/maven/modules-badge.png";
     private final NbMavenProjectImpl proj;
 
     @Messages("LBL_Modules=Modules")
     public ModulesNode(NbMavenProjectImpl proj) {
-        super(Children.create(new ModulesChildFactory(proj), true));
+        super(Children.create(new ModulesChildFactory(proj), true), Lookups.fixed(PathFinders.createModulesFinder()));
         this.proj = proj;
         setName("Modules"); //NOI18N
         setDisplayName(LBL_Modules());
@@ -112,29 +113,26 @@ public class ModulesNode extends AbstractNode {
         NbMavenProjectImpl proj;
     }
     
-   
-    
     private static class ModulesChildFactory extends ChildFactory<Wrapper>{
-        private final NbMavenProjectImpl project;
-        private final PropertyChangeListener listener;
-        
-         ModulesChildFactory(NbMavenProjectImpl proj) {
-            project = proj;
-            NbMavenProject watcher = project.getProjectWatcher();
-            listener = new PropertyChangeListener() {
-                                       @Override
-                                       public void propertyChange(PropertyChangeEvent evt) {
-                                           if (NbMavenProject.PROP_PROJECT.equals(evt.getPropertyName())) {
-                                               refresh(false);
-                                           }
-                                       }
-                                   };
-             
-            watcher.addPropertyChangeListener(WeakListeners.propertyChange(listener, watcher));                       
-            
- 
-        }
-         
+		private final NbMavenProjectImpl project;
+		private final PropertyChangeListener listener;
+
+		ModulesChildFactory(NbMavenProjectImpl proj) {
+			project = proj;
+			NbMavenProject watcher = project.getProjectWatcher();
+			listener = (PropertyChangeEvent evt) -> {
+				if (NbMavenProject.PROP_PROJECT.equals(evt.getPropertyName())) {
+					refresh(false);
+				}
+			};
+
+			watcher.addPropertyChangeListener(WeakListeners.propertyChange(listener, watcher));
+		}
+
+		public void update() {
+			this.refresh(false);
+		}
+
         @Override
         protected boolean createKeys(final List<Wrapper> modules) {                                    
             for (String module : project.getOriginalMavenProject().getModules()) {
@@ -176,30 +174,53 @@ public class ModulesNode extends AbstractNode {
             return true;
         }
 
-        @Override
-        protected Node createNodeForKey(Wrapper wr) {
-             return new ProjectFilterNode(project, wr.proj, wr.provider.createLogicalView(), wr.isAggregator);
-        }
-        
-        
+		@Override
+		protected Node createNodeForKey(Wrapper wr) {
+			if (OpenProjects.getDefault().isProjectOpen(wr.proj)) {
+				return new OpenProjectFilterNode(this, wr.provider.createLogicalView());
+			} else {
+				return new ClosedProjectFilterNode(this, project, wr.proj, wr.provider.createLogicalView(), wr.isAggregator);
+			}
+		}
     }
   
-    private static class ProjectFilterNode extends FilterNode {
+    private static class OpenProjectFilterNode extends FilterNode {
+		private final ModulesChildFactory factory;
 
+        OpenProjectFilterNode(ModulesChildFactory factory, Node original) {
+            super(original);
+			this.factory = factory;
+        }
+
+		public @Override Action[] getActions(boolean param) {
+			Action[] actions = CommonProjectActions.forType("org-netbeans-modules-maven"); // NOI18N
+			for (int i = 0; i < actions.length; i++) {
+				if (actions[i] != null && actions[i].getClass() == CloseProject.class) {
+					actions[i] = new CloseProjectAction(factory);
+				}
+			}
+			return actions;
+		}
+    }
+
+	private static class ClosedProjectFilterNode extends FilterNode {
+
+		private final Action openModule;
         private final NbMavenProjectImpl project;
         private final NbMavenProjectImpl parent;
 
-        ProjectFilterNode(NbMavenProjectImpl parent, NbMavenProjectImpl proj, Node original, boolean isAggregator) {
+        ClosedProjectFilterNode(ModulesChildFactory factory, NbMavenProjectImpl parent, NbMavenProjectImpl proj, Node original, boolean isAggregator) {
             super(original, isAggregator ? Children.create(new ModulesChildFactory(proj), true) : Children.LEAF);
 //            disableDelegation(DELEGATE_GET_ACTIONS);
+			openModule = new OpenProjectAction(factory);
             project = proj;
             this.parent = parent;
         }
 
         @Override
         public Action[] getActions(boolean b) {
-            ArrayList<Action> lst = new ArrayList<Action>();
-            lst.add(OpenProjectAction.SINGLETON);
+            ArrayList<Action> lst = new ArrayList<>();
+            lst.add(openModule);
             lst.add(OpenPOMAction.instance());
             lst.add(new RemoveModuleAction(parent, project));
 //            lst.addAll(Arrays.asList(super.getActions(b)));
@@ -208,7 +229,7 @@ public class ModulesNode extends AbstractNode {
 
         @Override
         public Action getPreferredAction() {
-            return OpenProjectAction.SINGLETON;
+            return openModule;
         }
     }
 
@@ -253,12 +274,37 @@ public class ModulesNode extends AbstractNode {
             }
         }
     }
+	
+	private static class CloseProjectAction extends CloseProject {
+		private final ModulesChildFactory factory;
+
+		CloseProjectAction(ModulesChildFactory factory) {
+			super(null);
+			this.factory = factory;
+		}
+		CloseProjectAction(ModulesChildFactory factory, Lookup context) {
+			super(context);
+			this.factory = factory;
+		}
+
+		@Override
+		protected void actionPerformed( final Lookup context ) {
+			super.actionPerformed(context);
+			factory.update();
+		}
+
+		@Override
+		public Action createContextAwareInstance( Lookup actionContext ) {
+			return new CloseProjectAction(factory, actionContext);
+		}
+	}
 
     private static class OpenProjectAction extends AbstractAction implements ContextAwareAction {
+		private final ModulesChildFactory factory;
 
-        static final OpenProjectAction SINGLETON = new OpenProjectAction();
-
-        private OpenProjectAction() {}
+        OpenProjectAction(ModulesChildFactory factory) {
+			this.factory = factory;
+		}
 
         public @Override void actionPerformed(ActionEvent e) {
             assert false;
@@ -274,6 +320,7 @@ public class ModulesNode extends AbstractNode {
                         RequestProcessor.getDefault().post(new Runnable() {
                             public @Override void run() {
                                 OpenProjects.getDefault().open(projectsArray, false, true);
+								factory.update();
                                 RequestProcessor.getDefault().post(new Runnable() {
                                     public @Override void run() {
                                         ProjectActionUtils.selectAndExpandProject(projectsArray[0]);
@@ -301,7 +348,7 @@ public class ModulesNode extends AbstractNode {
             if (c.showOpenDialog(Utilities.findDialogParent()) != JFileChooser.APPROVE_OPTION) {
                 return;
             }
-            final List<String> mods = new ArrayList<String>();
+            final List<String> mods = new ArrayList<>();
             for (File d : c.getSelectedFiles()) {
                 String mod = FileUtilities.relativizeFile(basedir, d);
                 if (mod != null && !mod.equals(".")) {
