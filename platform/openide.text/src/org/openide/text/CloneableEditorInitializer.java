@@ -549,7 +549,7 @@ final class CloneableEditorInitializer implements Runnable {
             }
             Border b = (Border) UIManager.get("Nb.Editor.Toolbar.border"); //NOI18N
             customToolbar.setBorder(b);
-            editor.add(customToolbar, BorderLayout.NORTH);
+            editor.add(customToolbar, BorderLayout.SOUTH);
         }
     }
 
