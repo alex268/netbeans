@@ -261,7 +261,7 @@ class MultiViewCloneableEditor extends CloneableEditor  implements MultiViewElem
                 CustomToolbar custom = (NbDocument.CustomToolbar)doc;
                 final JToolBar content = custom.createToolbar(pane);
                 if (content != null) {
-                    bar.add(content, BorderLayout.CENTER);
+                    bar.add(content, BorderLayout.SOUTH);
                 }
             }
         }

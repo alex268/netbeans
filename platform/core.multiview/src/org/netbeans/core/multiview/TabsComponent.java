@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.Set;
 import javax.swing.*;
 import javax.swing.JToggleButton.ToggleButtonModel;
-import javax.swing.KeyStroke;
 import javax.swing.border.Border;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import org.netbeans.core.spi.multiview.MultiViewDescription;
@@ -95,7 +94,7 @@ class TabsComponent extends JPanel {
         }
 
         setLayout(new BorderLayout());
-        add(bar, BorderLayout.NORTH);
+        add(bar, BorderLayout.SOUTH);
         startToggling();
         setToolbarBarVisible(toolVis);
     }
@@ -219,7 +218,7 @@ class TabsComponent extends JPanel {
 	toolbarPanelSplit = null;
 	splitterPropertyChangeListener = null;
 
-	add(bar, BorderLayout.NORTH);
+	add(bar, BorderLayout.SOUTH);
         if( null != layerUI ) {
             add(new JLayer( componentPanel, layerUI ), BorderLayout.CENTER);
         } else {
@@ -234,7 +233,7 @@ class TabsComponent extends JPanel {
 
     private void setupSplit() {
 	topLeftComponent = new JPanel(new BorderLayout());
-	topLeftComponent.add(bar, BorderLayout.NORTH);
+	topLeftComponent.add(bar, BorderLayout.SOUTH);
         topLeftComponent.add(componentPanel, BorderLayout.CENTER);
 
 	bottomRightComponent = new JPanel();
@@ -251,7 +250,7 @@ class TabsComponent extends JPanel {
         }
 
         bottomRightComponent.setLayout(new BorderLayout());
-        bottomRightComponent.add(barSplit, BorderLayout.NORTH);
+        bottomRightComponent.add(barSplit, BorderLayout.SOUTH);
         startTogglingSplit();
         setToolbarBarVisibleSplit(bar.isVisible());
 
