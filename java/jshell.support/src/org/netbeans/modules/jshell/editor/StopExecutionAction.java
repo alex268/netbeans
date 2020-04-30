@@ -21,7 +21,6 @@ package org.netbeans.modules.jshell.editor;
 import java.awt.event.ActionEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.text.JTextComponent;
-import org.netbeans.api.editor.EditorActionRegistration;
 import org.netbeans.api.progress.BaseProgressUtils;
 import org.netbeans.modules.jshell.support.ShellSession;
 import org.openide.util.NbBundle;
@@ -30,12 +29,6 @@ import org.openide.util.NbBundle;
  *
  * @author sdedic
  */
-@EditorActionRegistration(
-    mimeType = "text/x-repl", // NOI18N
-    name = StopExecutionAction.NAME,
-    popupPosition = 20003,
-    iconResource= "org/netbeans/modules/jshell/resources/stop.png" // NOI18N
-)
 @NbBundle.Messages(
         "LBL_AttemptingStop=Attempting to stop Java Shell execution"
 )
