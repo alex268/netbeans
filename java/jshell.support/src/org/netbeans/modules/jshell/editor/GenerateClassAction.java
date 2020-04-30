@@ -20,12 +20,9 @@ package org.netbeans.modules.jshell.editor;
 
 import java.awt.event.ActionEvent;
 import javax.swing.JButton;
-import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 import org.netbeans.api.editor.EditorActionRegistration;
-import org.netbeans.api.editor.document.EditorDocumentUtils;
 import org.netbeans.api.project.Project;
-import org.netbeans.editor.BaseAction;
 import org.netbeans.modules.jshell.support.ShellSession;
 import org.openide.*;
 import org.openide.awt.ActionID;
@@ -44,13 +41,6 @@ import org.openide.util.Utilities;
  *
  * @author sdedic
  */
-@EditorActionRegistration(
-    mimeType = "text/x-repl",
-    name = GenerateClassAction.NAME,
-    popupPath = "",
-    popupPosition = 20002,
-    iconResource = "org/netbeans/modules/jshell/resources/saveToClass.gif" // NOI18N
-)
 @ActionID(category = "Source", id = "org.netbeans.modules.jshell.editor.GenerateClassAction")
 public class GenerateClassAction extends ShellActionBase {
     public static final String NAME = "jshell-save-to-class"; // NOI18N
