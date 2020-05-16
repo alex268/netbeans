@@ -28,7 +28,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JFileChooser;
@@ -45,7 +49,6 @@ import org.netbeans.modules.maven.model.ModelOperation;
 import org.netbeans.modules.maven.model.pom.POMModel;
 import static org.netbeans.modules.maven.nodes.Bundle.*;
 import org.netbeans.modules.maven.spi.nodes.NodeUtils;
-import org.netbeans.modules.project.ui.actions.CloseProject;
 import org.netbeans.modules.project.ui.api.ProjectActionUtils;
 import org.netbeans.spi.project.ui.LogicalViewProvider;
 import org.netbeans.spi.project.ui.support.CommonProjectActions;
@@ -107,147 +110,220 @@ public class ModulesNode extends AbstractNode {
         return getIcon(true);
     }
 
-    private static class Wrapper {
-        boolean isAggregator;
-        LogicalViewProvider provider;
-        NbMavenProjectImpl proj;
-		
-		public Node createLogicalView() {
-			return provider.createLogicalView();
+    private static class ModulesChildFactory extends ChildFactory<ModulesChildFactory.SubModule> {
+		private class SubModule {
+			private final NbMavenProjectImpl parent;
+			private final NbMavenProjectImpl proj;
+			private final boolean isOpen;
+			private final boolean isAggregator;
+			private final LogicalViewProvider provider;
+			private Node lazyNode = null;
+
+			public SubModule(NbMavenProjectImpl parent, NbMavenProjectImpl module) {
+				this.parent = parent;
+				this.proj = module;
+				MavenProject mp = proj.getOriginalMavenProject();
+				this.isOpen =  OpenProjects.getDefault().isProjectOpen(proj);
+				this.isAggregator = NbMavenProject.TYPE_POM.equals(mp.getPackaging()) && !mp.getModules().isEmpty();
+				this.provider = proj.getLookup().lookup(LogicalViewProvider.class);
+				assert provider != null;
+			}
+			
+			public boolean isChanged(NbMavenProjectImpl module) {
+				boolean open = OpenProjects.getDefault().isProjectOpen(proj);
+				return !module.equals(proj) || open != isOpen;
+			}
+			
+			public boolean isClosedOpenProject(Project p) {
+				return proj.equals(p) && !isOpen;
+			}
+			
+			public boolean isOpenClosedProject(Set<Project> opened) {
+				return !opened.contains(proj) && isOpen;
+			}
+
+			public Node getModuleNode() {
+				if (lazyNode == null) {
+					Lookup lookup = isAggregator ? Lookups.fixed(PathFinders.createModulesFinder(), proj) : Lookups.fixed(PathFinders.createSubProjectFinder(), proj);
+					if (isOpen) {
+						lazyNode = new OpenProjectFilterNode(provider.createLogicalView(), lookup);
+					} else {
+						Children children = isAggregator ? Children.create(new ModulesChildFactory(proj), true) : FilterNode.Children.LEAF;
+						lazyNode = new ClosedProjectFilterNode(provider.createLogicalView(), children, lookup, parent, proj);
+					}
+				}
+				return lazyNode;
+			}
+
+			public NbMavenProjectImpl project() {
+				return proj;
+			}
 		}
-		
-		public NbMavenProjectImpl project() {
-			return proj;
-		}
-		
-		public Children createChildren() {
-			return isAggregator ? FilterNode.Children.create(new ModulesChildFactory(proj), true) : FilterNode.Children.LEAF;
-		}
-				
-		public Lookup createLookup() {
-			return isAggregator ? Lookups.fixed(PathFinders.createModulesFinder(), proj) : Lookups.fixed(PathFinders.createSubProjectFinder(), proj);
-		}
-    }
-    
-    private static class ModulesChildFactory extends ChildFactory<Wrapper>{
+
 		private final NbMavenProjectImpl project;
-		private final PropertyChangeListener listener;
+		private final PropertyChangeListener projectListener;
+		private final PropertyChangeListener modulesListener;
+		private final Map<String, SubModule> modules = new HashMap<>();
+		private volatile boolean modulesLoaded = false;
 
 		ModulesChildFactory(NbMavenProjectImpl proj) {
 			project = proj;
 			NbMavenProject watcher = project.getProjectWatcher();
-			listener = (PropertyChangeEvent evt) -> {
+			projectListener = (PropertyChangeEvent evt) -> {
 				if (NbMavenProject.PROP_PROJECT.equals(evt.getPropertyName())) {
-					refresh(false);
+					reloadModules();
+				}
+			};
+			modulesListener = (PropertyChangeEvent evt) -> {
+				if (!OpenProjects.PROPERTY_OPEN_PROJECTS.equals(evt.getPropertyName())) {
+					return;
+				}
+
+				if (!(evt.getNewValue() instanceof Project[])) {
+					return;
+				}
+
+				Project[] vv = (Project[])evt.getNewValue();
+				Set<Project> vvSet = new HashSet<>();
+				
+				// Check if new module open
+				for (Project p: vv) {
+					vvSet.add(p);
+					for (SubModule module: modules.values()) {
+						if (module.isClosedOpenProject(p)) {
+							reloadModules();
+							return;
+						}
+					}
+				}
+				
+				// Check if have closed module
+				for (SubModule module: modules.values()) {
+					if (module.isOpenClosedProject(vvSet)) {
+						reloadModules();
+						return;
+					}
 				}
 			};
 
-			watcher.addPropertyChangeListener(WeakListeners.propertyChange(listener, watcher));
+			OpenProjects.getDefault().addPropertyChangeListener(WeakListeners.propertyChange(modulesListener, watcher));
+			watcher.addPropertyChangeListener(WeakListeners.propertyChange(projectListener, watcher));
 		}
-
-		public void update() {
+		
+		public void reloadModules() {
+			modulesLoaded = false;
 			this.refresh(false);
 		}
 
+		private synchronized void refreshModules() {
+			if (modulesLoaded) {
+				return;
+			}
+
+			Set<String> modulesToRemove = new HashSet<>(modules.keySet());
+			for (String module: project.getOriginalMavenProject().getModules()) {
+				NbMavenProjectImpl prj = findModuleProject(module);
+				if (prj != null) {
+					if (modules.containsKey(module)) {
+						modulesToRemove.remove(module);
+						if (modules.get(module).isChanged(prj)) {
+							modules.put(module, new SubModule(project, prj));
+						}
+					} else {
+						modules.put(module, new SubModule(project, prj));
+					}
+				}
+			}
+			
+			for (String module: modulesToRemove) {
+				modules.remove(module);
+			}
+			
+			modulesLoaded = true;
+		}
+		
+		private NbMavenProjectImpl findModuleProject(String module) {
+			File base = project.getOriginalMavenProject().getBasedir();
+			File projDir = FileUtil.normalizeFile(new File(base, module));
+			FileObject fo = FileUtil.toFileObject(projDir);
+			if (fo == null) {
+				//TODO broken module reference.. show as such..
+				return null;
+			}
+
+			try {
+				Project prj = ProjectManager.getDefault().findProject(fo);
+				if(prj == null) {
+					// issue #242542
+					// the projects pom might be already cached by ProjectManager as NO_SUCH_PROJECT, 
+					// we have to get rid of that cached value.
+					// Would prefer a better place to call .clearNonProjectCache after a project was created,
+					// unfortunatelly .createKeys is invoked by a chain of events triggered by the poms save document
+					// - not sure how to hook before that, so that we can ensure that it isn't cached anymore.
+					// - on the other hand lets not clear the ProjectManager cache on each Node refresh.
+					ProjectManager.getDefault().clearNonProjectCache();
+					prj = ProjectManager.getDefault().findProject(fo);
+				}
+				if (prj != null && prj.getLookup().lookup(NbMavenProjectImpl.class) != null) {
+					return (NbMavenProjectImpl) prj;
+				}
+			} catch (IllegalArgumentException | IOException ex) {
+				ex.printStackTrace();//TODO log ?
+			}
+			return null;
+		}
+
         @Override
-        protected boolean createKeys(final List<Wrapper> modules) {                                    
-            for (String module : project.getOriginalMavenProject().getModules()) {
-                File base = project.getOriginalMavenProject().getBasedir();
-                File projDir = FileUtil.normalizeFile(new File(base, module));
-                FileObject fo = FileUtil.toFileObject(projDir);
-                if (fo != null) {
-                    try {
-                        Project prj = ProjectManager.getDefault().findProject(fo);
-                        if(prj == null) {
-                            // issue #242542
-                            // the projects pom might be already cached by ProjectManager as NO_SUCH_PROJECT, 
-                            // we have to get rid of that cached value.
-                            // Would prefer a better place to call .clearNonProjectCache after a project was created,
-                            // unfortunatelly .createKeys is invoked by a chain of events triggered by the poms save document
-                            // - not sure how to hook before that, so that we can ensure that it isn't cached anymore.
-                            // - on the other hand lets not clear the ProjectManager cache on each Node refresh.
-                            ProjectManager.getDefault().clearNonProjectCache();
-                            prj = ProjectManager.getDefault().findProject(fo);
-                        }
-                        if (prj != null && prj.getLookup().lookup(NbMavenProjectImpl.class) != null) {
-                            Wrapper wr = new Wrapper();
-                            wr.proj = (NbMavenProjectImpl) prj;
-                            MavenProject mp = wr.project().getOriginalMavenProject();
-                            wr.isAggregator = NbMavenProject.TYPE_POM.equals(mp.getPackaging()) && !mp.getModules().isEmpty();
-                            wr.provider = prj.getLookup().lookup(LogicalViewProvider.class);
-                            assert wr.provider != null;
-                            modules.add(wr);
-                        }
-                    } catch (IllegalArgumentException ex) {
-                        ex.printStackTrace();//TODO log ?
-                    } catch (IOException ex) {
-                        ex.printStackTrace();//TODO log ?
-                    }
-                } else {
-                    //TODO broken module reference.. show as such..
-                }
-            }
+        protected boolean createKeys(final List<SubModule> keys) {
+			refreshModules();
+
+			for (String module : project.getOriginalMavenProject().getModules()) {
+				if (modules.containsKey(module)) {
+					keys.add(modules.get(module));
+				}
+			}
             return true;
         }
 
 		@Override
-		protected Node createNodeForKey(Wrapper wr) {
-			if (OpenProjects.getDefault().isProjectOpen(wr.proj)) {
-				return new OpenProjectFilterNode(this, wr);
-			} else {
-				return new ClosedProjectFilterNode(this, project, wr);
-			}
+		protected Node createNodeForKey(SubModule wr) {
+			return wr.getModuleNode();
 		}
     }
   
-    private static class OpenProjectFilterNode extends FilterNode {
-		private final ModulesChildFactory factory;
-
-        OpenProjectFilterNode(ModulesChildFactory factory, Wrapper wp) {
-            super(wp.createLogicalView(), null, wp.createLookup());
-			this.factory = factory;
-        }
-
-		public @Override Action[] getActions(boolean param) {
-			Action[] actions = CommonProjectActions.forType("org-netbeans-modules-maven"); // NOI18N
-			for (int i = 0; i < actions.length; i++) {
-				if (actions[i] != null && actions[i].getClass() == CloseProject.class) {
-					actions[i] = new CloseProjectAction(factory);
-				}
-			}
-			return actions;
+	private static class OpenProjectFilterNode extends FilterNode {
+		OpenProjectFilterNode(Node node, Lookup lookup) {
+			super(node, null, lookup);
 		}
-    }
+	}
 
 	private static class ClosedProjectFilterNode extends FilterNode {
-
 		private final Action openModule;
-        private final NbMavenProjectImpl project;
-        private final NbMavenProjectImpl parent;
+		private final Action removeModule;
 
-        ClosedProjectFilterNode(ModulesChildFactory factory, NbMavenProjectImpl parent, Wrapper wp) {
-            super(wp.createLogicalView(), wp.createChildren(), wp.createLookup());
+		ClosedProjectFilterNode(Node node, org.openide.nodes.Children children, Lookup lookup, NbMavenProjectImpl parent, NbMavenProjectImpl module) {
+			super(node, children, lookup);
 //            disableDelegation(DELEGATE_GET_ACTIONS);
-			openModule = new OpenProjectAction(factory);
-            project = wp.project();
-            this.parent = parent;
-        }
+			openModule = new OpenProjectAction();
+			removeModule = new RemoveModuleAction(parent, module);
+		}
 
-        @Override
-        public Action[] getActions(boolean b) {
-            ArrayList<Action> lst = new ArrayList<>();
-            lst.add(openModule);
-            lst.add(OpenPOMAction.instance());
-            lst.add(new RemoveModuleAction(parent, project));
+		@Override
+		public Action[] getActions(boolean b) {
+			ArrayList<Action> lst = new ArrayList<>();
+			lst.add(openModule);
+			lst.add(OpenPOMAction.instance());
+			lst.add(removeModule);
 //            lst.addAll(Arrays.asList(super.getActions(b)));
-            return lst.toArray(new Action[0]);
-        }
+			return lst.toArray(new Action[lst.size()]);
+		}
 
-        @Override
-        public Action getPreferredAction() {
-            return openModule;
-        }
-    }
+		@Override
+		public Action getPreferredAction() {
+			return openModule;
+		}
+	}
+		
 
     private static class RemoveModuleAction extends AbstractAction {
 
@@ -267,23 +343,20 @@ public class ModulesNode extends AbstractNode {
             Object ret = DialogDisplayer.getDefault().notify(nd);
             if (ret == NotifyDescriptor.YES_OPTION) {
                 FileObject fo = FileUtil.toFileObject(parent.getPOMFile());
-                ModelOperation<POMModel> operation = new ModelOperation<POMModel>() {
-                    @Override
-                    public void performOperation(POMModel model) {
-                        List<String> modules = model.getProject().getModules();
-                        if (modules != null) {
-                            for (String path : modules) {
-                                File rel = new File(parent.getPOMFile().getParent(), path);
-                                File norm = FileUtil.normalizeFile(rel);
-                                FileObject folder = FileUtil.toFileObject(norm);
-                                if (folder != null && folder.equals(project.getProjectDirectory())) {
-                                    model.getProject().removeModule(path);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                };
+                ModelOperation<POMModel> operation = (POMModel model) -> {
+					List<String> modules = model.getProject().getModules();
+					if (modules != null) {
+						for (String path : modules) {
+							File rel = new File(parent.getPOMFile().getParent(), path);
+							File norm = FileUtil.normalizeFile(rel);
+							FileObject folder = FileUtil.toFileObject(norm);
+							if (folder != null && folder.equals(project.getProjectDirectory())) {
+								model.getProject().removeModule(path);
+								break;
+							}
+						}
+					}
+				};
                 org.netbeans.modules.maven.model.Utilities.performPOMModelOperations(fo, Collections.singletonList(operation));
                 //TODO is the manual reload necessary if pom.xml file is being saved?
                 NbMavenProject.fireMavenProjectReload(project);
@@ -291,37 +364,7 @@ public class ModulesNode extends AbstractNode {
         }
     }
 	
-	private static class CloseProjectAction extends CloseProject {
-		private final ModulesChildFactory factory;
-
-		CloseProjectAction(ModulesChildFactory factory) {
-			super(null);
-			this.factory = factory;
-		}
-		CloseProjectAction(ModulesChildFactory factory, Lookup context) {
-			super(context);
-			this.factory = factory;
-		}
-
-		@Override
-		protected void actionPerformed( final Lookup context ) {
-			super.actionPerformed(context);
-			factory.update();
-		}
-
-		@Override
-		public Action createContextAwareInstance( Lookup actionContext ) {
-			return new CloseProjectAction(factory, actionContext);
-		}
-	}
-
     private static class OpenProjectAction extends AbstractAction implements ContextAwareAction {
-		private final ModulesChildFactory factory;
-
-        OpenProjectAction(ModulesChildFactory factory) {
-			this.factory = factory;
-		}
-
         public @Override void actionPerformed(ActionEvent e) {
             assert false;
         }
@@ -333,17 +376,12 @@ public class ModulesNode extends AbstractNode {
                     Collection<? extends NbMavenProjectImpl> projects = context.lookupAll(NbMavenProjectImpl.class);
                     final NbMavenProjectImpl[] projectsArray = projects.toArray(new NbMavenProjectImpl[0]);
                     if(projectsArray.length > 0) {
-                        RequestProcessor.getDefault().post(new Runnable() {
-                            public @Override void run() {
-                                OpenProjects.getDefault().open(projectsArray, false, true);
-								factory.update();
-                                RequestProcessor.getDefault().post(new Runnable() {
-                                    public @Override void run() {
-                                        ProjectActionUtils.selectAndExpandProject(projectsArray[0]);
-                                    }
-                                }, 500);    
-                            }
-                        });
+                        RequestProcessor.getDefault().post(() -> {
+							OpenProjects.getDefault().open(projectsArray, false, false);
+							RequestProcessor.getDefault().post(() -> {
+								ProjectActionUtils.selectAndExpandProject(projectsArray[0]);
+							}, 500);
+						});
                     }
                 }
             };
