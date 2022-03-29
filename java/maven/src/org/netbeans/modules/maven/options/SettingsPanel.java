@@ -197,6 +197,7 @@ public class SettingsPanel extends javax.swing.JPanel {
         cbCollapseSuccessFolds.addActionListener(listener);
         cbReuse.addActionListener(listener);
         cbSkipTests.addActionListener(listener);
+        cbSkipJavaDoc.addActionListener(listener);
         comBinaries.addActionListener(listener);
         comJavadoc.addActionListener(listener);
         comSource.addActionListener(listener);
@@ -409,6 +410,7 @@ public class SettingsPanel extends javax.swing.JPanel {
         lbNetworkSettings = new javax.swing.JLabel();
         comMavenUserSettingsXml = new javax.swing.JComboBox();
         lblMavenUserSettingsXml = new javax.swing.JLabel();
+        cbSkipJavaDoc = new javax.swing.JCheckBox();
         jScrollPane1 = new javax.swing.JScrollPane();
         lstCategory = new javax.swing.JList();
         lblCategory = new javax.swing.JLabel();
@@ -527,7 +529,7 @@ public class SettingsPanel extends javax.swing.JPanel {
                     .addComponent(lblSource)
                     .addComponent(comSource, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, 36, Short.MAX_VALUE)
+                .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 36, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -737,6 +739,7 @@ public class SettingsPanel extends javax.swing.JPanel {
 
         lblCommandLine.setLabelFor(comMavenHome);
         org.openide.awt.Mnemonics.setLocalizedText(lblMavenUserSettingsXml, org.openide.util.NbBundle.getMessage(SettingsPanel.class, "SettingsPanel.lblMavenUserSettingsXml.text")); // NOI18N
+        org.openide.awt.Mnemonics.setLocalizedText(cbSkipJavaDoc, org.openide.util.NbBundle.getMessage(SettingsPanel.class, "SettingsPanel.cbSkipJavaDoc.text")); // NOI18N
 
         javax.swing.GroupLayout pnlExecutionLayout = new javax.swing.GroupLayout(pnlExecution);
         pnlExecution.setLayout(pnlExecutionLayout);
@@ -767,7 +770,8 @@ public class SettingsPanel extends javax.swing.JPanel {
                                     .addComponent(cbShowInfoLevel)
                                     .addComponent(btnGoals))
                                 .addGap(18, 18, 18))
-                            .addComponent(cbSkipTests, javax.swing.GroupLayout.Alignment.LEADING))
+                            .addComponent(cbSkipTests, javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(cbSkipJavaDoc, javax.swing.GroupLayout.Alignment.LEADING))
                         .addGap(58, 58, 58))
                     .addGroup(pnlExecutionLayout.createSequentialGroup()
                         .addGroup(pnlExecutionLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -836,6 +840,8 @@ public class SettingsPanel extends javax.swing.JPanel {
                     .addComponent(comMavenUserSettingsXml, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addComponent(cbSkipTests)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(cbSkipJavaDoc)
                 .addGap(18, 18, 18)
                 .addComponent(btnGoals)
                 .addGap(18, 18, 18)
@@ -998,6 +1004,7 @@ public class SettingsPanel extends javax.swing.JPanel {
     private javax.swing.JComboBox cbProjectNodeNameMode;
     private javax.swing.JCheckBox cbReuse;
     private javax.swing.JCheckBox cbShowInfoLevel;
+    private javax.swing.JCheckBox cbSkipJavaDoc;
     private javax.swing.JCheckBox cbSkipTests;
     private javax.swing.JComboBox comBinaries;
     private javax.swing.JComboBox comIndex;
@@ -1217,6 +1224,7 @@ public class SettingsPanel extends javax.swing.JPanel {
         comJavadoc.setSelectedItem(MavenSettings.getDefault().getJavadocDownloadStrategy());
         comSource.setSelectedItem(MavenSettings.getDefault().getSourceDownloadStrategy());
         cbSkipTests.setSelected(MavenSettings.getDefault().isSkipTests());
+        cbSkipJavaDoc.setSelected(MavenSettings.getDefault().isSkipJavaDoc());
         cbAlwaysShow.setSelected(MavenSettings.getDefault().isAlwaysShowOutput());
         cbShowInfoLevel.setSelected(MavenSettings.getDefault().isShowLoggingLevel());
         cbReuse.setSelected(MavenSettings.getDefault().isReuseOutputTabs());
@@ -1314,6 +1322,7 @@ public class SettingsPanel extends javax.swing.JPanel {
         MavenSettings.getDefault().setJavadocDownloadStrategy((MavenSettings.DownloadStrategy) comJavadoc.getSelectedItem());
         MavenSettings.getDefault().setSourceDownloadStrategy((MavenSettings.DownloadStrategy) comSource.getSelectedItem());
         MavenSettings.getDefault().setSkipTests(cbSkipTests.isSelected());
+        MavenSettings.getDefault().setSkipJavaDoc(cbSkipJavaDoc.isSelected());
         MavenSettings.getDefault().setAlwaysShowOutput(cbAlwaysShow.isSelected());
         MavenSettings.getDefault().setShowLoggingLevel(cbShowInfoLevel.isSelected());
         MavenSettings.getDefault().setReuseOutputTabs(cbReuse.isSelected());
@@ -1384,6 +1393,7 @@ public class SettingsPanel extends javax.swing.JPanel {
         isChanged |= MavenSettings.getDefault().getJavadocDownloadStrategy().compareTo((MavenSettings.DownloadStrategy) comJavadoc.getSelectedItem()) != 0;
         isChanged |= MavenSettings.getDefault().getSourceDownloadStrategy().compareTo((MavenSettings.DownloadStrategy) comSource.getSelectedItem()) != 0;
         isChanged |= MavenSettings.getDefault().isSkipTests() != cbSkipTests.isSelected();
+        isChanged |= MavenSettings.getDefault().isSkipJavaDoc() != cbSkipJavaDoc.isSelected();
         isChanged |= MavenSettings.getDefault().isAlwaysShowOutput() != cbAlwaysShow.isSelected();
         isChanged |= MavenSettings.getDefault().isShowLoggingLevel() != cbShowInfoLevel.isSelected();
         isChanged |= MavenSettings.getDefault().isReuseOutputTabs() != cbReuse.isSelected();

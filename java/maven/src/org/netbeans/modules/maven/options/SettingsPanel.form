@@ -603,6 +603,7 @@
                                       <EmptySpace min="-2" pref="18" max="-2" attributes="0"/>
                                   </Group>
                                   <Component id="cbSkipTests" alignment="0" min="-2" max="-2" attributes="0"/>
+                                  <Component id="cbSkipJavaDoc" alignment="0" min="-2" max="-2" attributes="0"/>
                               </Group>
                               <EmptySpace min="-2" pref="58" max="-2" attributes="0"/>
                           </Group>
@@ -693,6 +694,8 @@
                       </Group>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
                       <Component id="cbSkipTests" min="-2" max="-2" attributes="0"/>
+                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                      <Component id="cbSkipJavaDoc" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
                       <Component id="btnGoals" min="-2" max="-2" attributes="0"/>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
@@ -911,6 +914,13 @@
               <AuxValues>
                 <AuxValue name="JavaCodeGenerator_InitCodePre" type="java.lang.String" value="lblCommandLine.setLabelFor(comMavenHome);"/>
               </AuxValues>
+            </Component>
+            <Component class="javax.swing.JCheckBox" name="cbSkipJavaDoc">
+              <Properties>
+                <Property name="text" type="java.lang.String" editor="org.netbeans.modules.i18n.form.FormI18nStringEditor">
+                  <ResourceString bundle="org/netbeans/modules/maven/options/Bundle.properties" key="SettingsPanel.cbSkipJavaDoc.text" replaceFormat="org.openide.util.NbBundle.getMessage({sourceFileName}.class, &quot;{key}&quot;)"/>
+                </Property>
+              </Properties>
             </Component>
           </SubComponents>
         </Container>
