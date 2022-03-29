@@ -66,6 +66,7 @@ public final class MavenSettings  {
     private static final String PROP_LAST_ARCHETYPE_GROUPID = "lastArchetypeGroupId"; //NOI18N
     private static final String PROP_LAST_ARCHETYPE_VERSION = "lastArchetypeVersion"; //NOI18N
     private static final String PROP_SKIP_TESTS = "skipTests"; //NOI18N
+    private static final String PROP_SKIP_JAVADOC = "skipJavaDoc"; //NOI18N
     private static final String PROP_MAVEN_RUNTIMES = "mavenRuntimes"; //NOI18N
     public static final String PROP_PROJECTNODE_NAME_PATTERN = "project.displayName"; //NOI18N
     private static final String PROP_ALWAYS_OUTPUT = "alwaysShowOutput";
@@ -294,6 +295,14 @@ public final class MavenSettings  {
         getPreferences().putBoolean(PROP_SKIP_TESTS, skipped);
     }
     
+    public boolean isSkipJavaDoc() {
+        return getPreferences().getBoolean(PROP_SKIP_JAVADOC, false);
+    }
+
+    public void setSkipJavaDoc(boolean skipped) {
+        getPreferences().putBoolean(PROP_SKIP_JAVADOC, skipped);
+    }
+
     public boolean isAlwaysShowOutput() {
         return getPreferences().getBoolean(PROP_ALWAYS_OUTPUT, true);
     }
