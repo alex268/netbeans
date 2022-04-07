@@ -62,6 +62,19 @@ import org.openide.util.lookup.Lookups;
  * @author Milos Kleint
  */
 public class ProjectFilesNode extends AnnotatedAbstractNode {
+    /* All considered file names will be converted to lower case before the comparison */
+    public static final String DEFAULT_FILENAMES = ""
+            + ".gitlab-ci.yml\n"
+            + ".gitignore\n"
+            + "readme\n"
+            + "readme\n"
+            + "changelog\n"
+            + "authors\n"
+            + "dockerfile\n"
+            + "docker-compose\n"
+            + "contributing\n"
+            + "license\n"
+            + "ya.\n";
     
     private static final @StaticResource String PF_BADGE = "org/netbeans/modules/maven/projectfiles-badge.png";
     private final NbMavenProjectImpl project;
@@ -160,6 +173,10 @@ public class ProjectFilesNode extends AnnotatedAbstractNode {
                 String n = kid.getNameExt();
                 if (n.startsWith(M2Configuration.FILENAME_PREFIX) && n.endsWith(M2Configuration.FILENAME_SUFFIX)) {
                     keys.add(kid);
+                } else {
+                    if (kid.isData() && matches(kid.getNameExt().toLowerCase())) {
+                        keys.add(kid);
+                    }
                 }
             }
             keys.add(d.getFileObject(M2AuxilaryConfigImpl.CONFIG_FILE_NAME));
@@ -167,6 +184,17 @@ public class ProjectFilesNode extends AnnotatedAbstractNode {
             keys.removeAll(Collections.singleton(null));
             return true;
         }
+    }
+
+    private static boolean matches(String filename) {
+        System.out.println("check " + filename);
+        for (String filter: DEFAULT_FILENAMES.split("\n")) {
+            if (filename.startsWith(filter)) {
+                return true;
+            }
+            
+        }
+        return false;
     }
 
     private static class AddSettingsXmlAction extends AbstractAction {
