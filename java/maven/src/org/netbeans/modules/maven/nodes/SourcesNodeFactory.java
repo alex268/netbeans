@@ -20,6 +20,7 @@
 package org.netbeans.modules.maven.nodes;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -65,6 +66,10 @@ public class SourcesNodeFactory implements NodeFactory {
         
         @Override
         public List<SourceGroup> keys() {
+            if ("pom".equalsIgnoreCase(project.getOriginalMavenProject().getPackaging())) {
+                return Collections.emptyList();
+            }
+
             Sources srcs = ProjectUtils.getSources(project);
             SourceGroup[] javagroup = srcs.getSourceGroups(JavaProjectConstants.SOURCES_TYPE_JAVA);
             return Arrays.asList(javagroup);

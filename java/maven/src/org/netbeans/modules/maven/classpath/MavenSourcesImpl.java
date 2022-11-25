@@ -389,6 +389,11 @@ public class MavenSourcesImpl implements Sources, SourceGroupModifierImplementat
     public @Override SourceGroup createSourceGroup(String type, String hint) {
         assert type != null;
         MavenProject mp = project().getOriginalMavenProject();
+
+        if ("pom".equalsIgnoreCase(mp.getPackaging())) {
+            return null;
+        }
+
         File folder = null;
         if (JavaProjectConstants.SOURCES_TYPE_RESOURCES.equals(type)) {
             boolean main = JavaProjectConstants.SOURCES_HINT_MAIN.equals(hint);
