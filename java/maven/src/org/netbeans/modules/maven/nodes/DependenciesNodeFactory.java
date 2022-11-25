@@ -66,7 +66,9 @@ public class DependenciesNodeFactory implements NodeFactory {
         
         @Override public List<DependenciesNode.DependenciesSet> keys() {
             List<DependenciesNode.DependenciesSet> list = new ArrayList<DependenciesNode.DependenciesSet>();
-            list.add(compile);
+            if (!compile.list(false).isEmpty()) {
+                list.add(compile);
+            }
             if (!runtime.list(false).isEmpty()) {
                 list.add(runtime);
             }
