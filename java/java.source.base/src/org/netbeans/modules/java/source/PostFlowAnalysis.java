@@ -110,7 +110,7 @@ public class PostFlowAnalysis extends TreeScanner {
         currentClass = tree.sym;
         List<Pair<TypeSymbol, Symbol>> prevOuterThisStack = outerThisStack;
         try {
-            if (currentClass != null) {
+            if (currentClass != null && currentClass.type != null) {
                 if (currentClass.hasOuterInstance())
                     outerThisDef(currentClass);
                 super.visitClassDef(tree);
