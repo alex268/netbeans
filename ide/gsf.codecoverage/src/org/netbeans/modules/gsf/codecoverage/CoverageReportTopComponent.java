@@ -21,7 +21,10 @@ package org.netbeans.modules.gsf.codecoverage;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.EventQueue;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -54,6 +57,7 @@ import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.modules.gsf.codecoverage.api.CoverageProvider;
 import org.netbeans.modules.gsf.codecoverage.api.FileCoverageSummary;
 import org.netbeans.spi.project.ActionProvider;
+import org.openide.awt.GraphicsUtils;
 import org.openide.awt.Mnemonics;
 import org.openide.filesystems.FileObject;
 import org.openide.loaders.DataObject;
@@ -391,24 +395,30 @@ final class CoverageReportTopComponent extends TopComponent {
             int executedLineCount = 0;
             int inferredCount = 0;
             int partialCount = 0;
+
+            this.results = new ArrayList<>();
             for (FileCoverageSummary result : results) {
+                if (result.getLineCount() == 0) {
+                    continue;
+                }
+                this.results.add(result);
                 lineCount += result.getLineCount();
                 executedLineCount += result.getExecutedLineCount();
                 inferredCount += result.getInferredCount();
                 partialCount += result.getPartialCount();
             }
 
-            if (results.isEmpty()) {
-                results.add(new FileCoverageSummary(null, NbBundle.getMessage(CoverageReportTopComponent.class, "NoData"), 0, 0, 0, 0));
+
+            if (this.results.isEmpty()) {
+                this.results.add(new FileCoverageSummary(null, NbBundle.getMessage(CoverageReportTopComponent.class, "NoData"), 0, 0, 0, 0));
             } else {
                 total = new FileCoverageSummary(null, "<html><b>"
                     + // NOI18N
                     NbBundle.getMessage(CoverageReportTopComponent.class, "Total")
                     + "</b></html>", lineCount, executedLineCount, inferredCount, partialCount); // NOI18N
                 totalCoverage = total.getCoveragePercentage();
-                results.add(total);
+                this.results.add(total);
             }
-            this.results = results;
         }
 
         FileCoverageSummary getCoverageSummary() {
@@ -557,6 +567,13 @@ final class CoverageReportTopComponent extends TopComponent {
             }
 
             return this;
+        }
+
+        @Override
+        public void paint(Graphics g) {
+            // Antialiasing if necessary
+            GraphicsUtils.configureDefaultRenderingHints(g);
+            super.paint(g);
         }
     }
 
