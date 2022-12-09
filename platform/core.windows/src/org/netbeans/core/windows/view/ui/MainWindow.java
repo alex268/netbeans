@@ -31,6 +31,8 @@ import java.util.logging.Logger;
 import javax.swing.*;
 import javax.swing.JPanel;
 import javax.swing.border.*;
+import javax.swing.event.*;
+import org.netbeans.core.CLIOptions2;
 import org.netbeans.core.windows.*;
 import org.netbeans.core.windows.view.ui.toolbars.ToolbarConfiguration;
 import org.openide.LifecycleManager;

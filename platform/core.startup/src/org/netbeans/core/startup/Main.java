@@ -375,7 +375,12 @@ public final class Main extends Object {
             try {
                 final Field awtAppClassName = xtoolkit.getDeclaredField("awtAppClassName"); //NOI18N
                 awtAppClassName.setAccessible(true);
-                awtAppClassName.set(null, NbBundle.getMessage(Main.class, "AWT_AppClassName", "").strip()); //NOI18N
+                String wmClass = NbBundle.getMessage(Main.class, "AWT_AppClassName", "").strip(); //NOI18N
+                String extClass = System.getenv("EXT_WM_CLASS");
+                if (extClass != null && !extClass.isEmpty()) {
+                    wmClass += " " + extClass;
+                }
+                awtAppClassName.set(null, wmClass);
             } catch (Exception x) {
                 Logger.getLogger(Main.class.getName()).log(Level.FINE, "can't change X11 application name", x);
             }
