@@ -33,6 +33,7 @@ import javax.swing.*;
 import javax.swing.JPanel;
 import javax.swing.border.*;
 import javax.swing.event.*;
+import org.netbeans.core.CLIOptions2;
 import org.netbeans.core.windows.*;
 import org.netbeans.core.windows.view.ui.toolbars.ToolbarConfiguration;
 import org.openide.LifecycleManager;
@@ -122,9 +123,15 @@ public final class MainWindow {
            //#183739 - provide proper app name on Linux
            if (xtoolkit.getName().equals("sun.awt.X11.XToolkit")) { //NOI18N
                try {
+                   
                     final Field awtAppClassName = xtoolkit.getDeclaredField("awtAppClassName"); //NOI18N
                     awtAppClassName.setAccessible(true);
-                    awtAppClassName.set(null, NbBundle.getMessage(MainWindow.class, "CTL_MainWindow_Title_No_Project", "").trim()); //NOI18N
+                    String wmClass = NbBundle.getMessage(MainWindow.class, "CTL_MainWindow_Title_No_Project", "").trim(); //NOI18N
+                    String extClass = System.getenv("EXT_WM_CLASS");
+                    if (extClass != null && !extClass.isEmpty()) {
+                        wmClass += " " + extClass;
+                    }
+                    awtAppClassName.set(null, wmClass);
                } catch (Exception x) {
                    LOGGER.log(Level.FINE, null, x);
                }
