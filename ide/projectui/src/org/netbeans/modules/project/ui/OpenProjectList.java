@@ -1044,6 +1044,11 @@ public final class OpenProjectList {
         return MUTEX.readAccess(() -> {
             List<Project> pl = new ArrayList<>();
             for (Project p : openProjects) {
+                if (!"org.netbeans.modules.maven.NbMavenProjectImpl".equals(p.getClass().getName())) {
+                    pl.add(p);
+                    continue;
+                }
+
                 boolean processed = false;
                 for (int i = 0; i < pl.size(); i += 1) {
                     String p1 = pl.get(i).getProjectDirectory().getPath();
@@ -1052,6 +1057,7 @@ public final class OpenProjectList {
                         processed = true;
                         break;
                     }
+                    
                     if (p1.startsWith(p2)) {
                         pl.set(i, p);
                         processed = true;
